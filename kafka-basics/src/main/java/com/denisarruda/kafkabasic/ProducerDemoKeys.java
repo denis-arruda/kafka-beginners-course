@@ -23,7 +23,7 @@ public class ProducerDemoKeys {
 
         for (int j = 0; j < 2; j++) {
             for (int i = 0; i < 10; i++) {
-                String topic = "third_topic";
+                String topic = "first_topic";
                 String key = "key_" + i;
                 String value = "Hello World from Java callback " + j + ":" + i;
 

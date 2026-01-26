@@ -1,10 +1,17 @@
 
 # Kafka Beginners Course
 
-This project is a multi-module Maven Java application for learning Apache Kafka basics. It includes simple producer demos and callback examples.
+
+This project is a multi-module Maven Java application for learning Apache Kafka basics. It includes simple producer and consumer demos, callback examples, and key-based message sending.
 
 ## Modules
-- **kafka-basics**: Contains basic Kafka producer examples, including sending messages with callbacks and keys.
+- **kafka-basics**: Contains basic Kafka producer and consumer examples, including:
+	- ProducerDemo: Simple producer
+	- ProducerDemoWithCallback: Producer with callback
+	- ProducerDemoKeys: Producer with keys
+	- ConsumerDemo: Simple consumer
+	- ConsumerDemoWithShutdown: Consumer with graceful shutdown
+	- ConsumerDemoCooperative: Consumer with cooperative rebalancing
 
 ## Requirements
 - Java 25+
@@ -17,22 +24,25 @@ This project is a multi-module Maven Java application for learning Apache Kafka 
 	```bash
 	./mvnw clean install
 	```
-3. Run producer demos:
+3. Run producer or consumer demos (replace `ClassName` as needed):
 	```bash
-	# Example: Run ProducerDemoWithCallback
+	# Producer examples
+	java -cp kafka-basics/target/kafka-basics-1.0-SNAPSHOT.jar com.denisarruda.kafkabasic.ProducerDemo
 	java -cp kafka-basics/target/kafka-basics-1.0-SNAPSHOT.jar com.denisarruda.kafkabasic.ProducerDemoWithCallback
-	# Example: Run ProducerDemoKeys
 	java -cp kafka-basics/target/kafka-basics-1.0-SNAPSHOT.jar com.denisarruda.kafkabasic.ProducerDemoKeys
+
+	# Consumer examples
+	java -cp kafka-basics/target/kafka-basics-1.0-SNAPSHOT.jar com.denisarruda.kafkabasic.ConsumerDemo
+	java -cp kafka-basics/target/kafka-basics-1.0-SNAPSHOT.jar com.denisarruda.kafkabasic.ConsumerDemoWithShutdown
+	java -cp kafka-basics/target/kafka-basics-1.0-SNAPSHOT.jar com.denisarruda.kafkabasic.ConsumerDemoCooperative
 	```
+    
+	- For consumers with shutdown support, use Ctrl+C to test graceful shutdown.
+	- Topics used: `first_topic`, `second_topic`, `third_topic` (ensure they exist in your broker).
 
 ## Features
 - Java Kafka producer with callback
 - Sending messages with keys
+- Multiple consumer patterns (simple, shutdown, cooperative)
 - Multi-module Maven structure
 - JUnit 5 tests
-
-## Contributing
-Feel free to fork and submit pull requests for improvements or new Kafka examples.
-
-## License
-MIT
