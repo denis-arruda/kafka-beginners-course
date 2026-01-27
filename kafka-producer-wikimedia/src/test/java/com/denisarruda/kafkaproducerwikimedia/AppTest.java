@@ -1,11 +1,12 @@
-package com.denisarruda.kafkabasic;
+package com.denisarruda.kafkaproducerwikimedia;
 
 import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class KafkaBasicsAppTest {
+public class AppTest {
     @Test
-    void testMainRuns() {
+    public void testApp() {
         assertTrue(true);
     }
 }

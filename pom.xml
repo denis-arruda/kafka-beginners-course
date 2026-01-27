@@ -31,5 +31,7 @@
   </build>
   <modules>
     <module>kafka-basics</module>
+    <module>kafka-producer-wikimedia</module>
+    <module>kafka-consumer-opensearch</module>
   </modules>
 </project>
