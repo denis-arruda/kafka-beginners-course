@@ -12,9 +12,11 @@ import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.DefaultConnectionKeepAliveStrategy;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.errors.WakeupException;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
+import org.opensearch.action.bulk.BulkRequest;
+import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.index.IndexRequest;
-import org.opensearch.action.index.IndexResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.RestClient;
 import org.opensearch.client.RestHighLevelClient;
@@ -64,12 +66,27 @@ public class OpenSearchConsumer {
         RestHighLevelClient openSearchClient = createOpenSearchClient();
 
         KafkaConsumer<String, String> consumer = createKafkaConsumer();
-        CreateIndexRequest createIndexRequest = new CreateIndexRequest("wikimedia");
+        
+        final Thread mainThread = Thread.currentThread();
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            public void run() {
+                log.info("Detected a shutdown, let's exit by calling consumer.wakeup()...");
+                consumer.wakeup();
+
+                try {
+                    mainThread.join();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+
         try (openSearchClient; consumer){
 
             boolean indexExists = openSearchClient.indices().exists(new GetIndexRequest("wikimedia"), RequestOptions.DEFAULT);
 
             if (!indexExists) {
+                CreateIndexRequest createIndexRequest = new CreateIndexRequest("wikimedia");
                 openSearchClient.indices().create(createIndexRequest, RequestOptions.DEFAULT);
                 log.info("Index created");
             } else {
@@ -78,24 +95,49 @@ public class OpenSearchConsumer {
 
             consumer.subscribe(java.util.Collections.singletonList("wikimedia.recentchange"));
             while (true) {
-                try {
-                    ConsumerRecords<String, String> records = consumer.poll(java.time.Duration.ofMillis(3000));
-                    int recordCount = records.count();
-                    log.info("Received {} records", recordCount);
+                
+                ConsumerRecords<String, String> records = consumer.poll(java.time.Duration.ofMillis(3000));
+                int recordCount = records.count();
+                log.info("Received {} record(s)", recordCount);
 
-                    for (var record : records) {
-                        String id = extractIdFromRecord(record.value());
-                        IndexRequest indexRequest = new IndexRequest("wikimedia")
-                                .source(record.value(), XContentType.JSON)
-                                .id(id); // this is to make our consumer idempotent
-                        IndexResponse response = openSearchClient.index(indexRequest, RequestOptions.DEFAULT);
-                        log.info("Inserted 1 document into OpenSearch with id: {}", response.getId());
-                    };
-                } catch (IOException e) {
+                BulkRequest bulkRequest = new BulkRequest();
+
+
+                for (var record : records) {
+                    try {
+                    String id = extractIdFromRecord(record.value());
+                    IndexRequest indexRequest = new IndexRequest("wikimedia")
+                            .source(record.value(), XContentType.JSON)
+                            .id(id); // this is to make our consumer idempotent
+                    //IndexResponse response = openSearchClient.index(indexRequest, RequestOptions.DEFAULT);
+                    //log.info("Inserted 1 document into OpenSearch with id: {}", response.getId());
+                    bulkRequest.add(indexRequest);
+
+                    } catch (Exception e) {}
+                }
+                
+                if (bulkRequest.numberOfActions() > 0) {
+                    BulkResponse bulkResponse = openSearchClient.bulk(bulkRequest, RequestOptions.DEFAULT);
+                    log.info("Inserted {} documents into OpenSearch", bulkResponse.getItems().length);
+
+                    try {
+                        Thread.sleep(1000); // Introduce a 1-second delay
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt(); // Restore interrupted status
+                    }
                 }
             }
+        } catch (WakeupException e) {
+            log.info("WakeupException caught, shutting down consumer...");
+        } catch (Exception e) {
+            log.error("Unexpected exception in consumer loop", e);
+        } finally {
+            consumer.close();
+            openSearchClient.close();
+            log.info("Consumer closed gracefully");
         }
     }
+
     private static String extractIdFromRecord(String value) {
         return JsonParser.parseString(value)
                 .getAsJsonObject()
@@ -104,6 +146,7 @@ public class OpenSearchConsumer {
                 .get("id")
                 .getAsString();
     }
+
     private static KafkaConsumer<String, String> createKafkaConsumer() {
         log.info("Starting Kafka Consumer");
 
